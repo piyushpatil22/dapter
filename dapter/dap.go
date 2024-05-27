@@ -46,18 +46,12 @@ func (d *DAP) AutoMigrate(object interface{}) error {
 	//TODO might change this from ID to the first field in that struct
 	field, _ := objectType.FieldByName("ID")
 	if tableName := field.Tag.Get("dapTableName"); tableName != "" {
-		fieldName, ok := CheckPKDefined(objectValue)
-		if !ok {
-			return fmt.Errorf("error while parsing PK")
+		pkFieldName, pkErr := CheckPKDefined(objectValue)
+		if pkErr != nil {
+			return pkErr
 		}
 		//TODO: add this PK attr to that field
-		log.Printf("Field with Primary Key: %v ", fieldName)
-		PK := field.Tag.Get("dapFieldAttrs")
-		if PK != "" {
-			if strings.Contains(PK, "PK") {
-				log.Println("This table has a PK defined")
-			}
-		}
+		log.Printf("Field with Primary Key: %v ", pkFieldName)
 		var exists bool
 		err := d.db.QueryRow("SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = $1)", tableName).Scan(&exists)
 		if err != nil {
@@ -68,7 +62,7 @@ func (d *DAP) AutoMigrate(object interface{}) error {
 			//TODO: do you want to do migration here?
 		} else {
 			log.Printf("Table %s does not exist\n", tableName)
-			query, err := createTableCreationQuery(objectValue, tableName)
+			query, err := createTableCreationQuery(objectValue, tableName, pkFieldName)
 			if err != nil {
 				return err
 			}
@@ -82,7 +76,7 @@ func (d *DAP) AutoMigrate(object interface{}) error {
 
 // Returns true if only one PK is defined in the struct,
 // false if more than one Pk is defined or no PK is defined
-func CheckPKDefined(object reflect.Value) (string, bool) {
+func CheckPKDefined(object reflect.Value) (string, error) {
 	var pkOccurences = 0
 	var fieldName = ""
 	fieldNums := object.NumField()
@@ -96,17 +90,17 @@ func CheckPKDefined(object reflect.Value) (string, bool) {
 		}
 	}
 	if pkOccurences == 1 {
-		return fieldName, true
+		return fieldName, nil
 	}
 	if pkOccurences > 1 {
-		return "", false
+		return "", ErrMultiplePKFieldFound
 	}
-	return "", false
+	return "", fmt.Errorf("Error while determining PK")
 }
 
 // Creates a query to create a table based on the struct that is passed in.
 // Returns an error if the struct is empty/invalid.
-func createTableCreationQuery(object reflect.Value, tableName string) (string, error) {
+func createTableCreationQuery(object reflect.Value, tableName string, pkFieldName string) (string, error) {
 	createTableQueryPrefix := "CREATE TABLE " + tableName + " ("
 	querySuffix := ");"
 	query := ""
@@ -116,12 +110,18 @@ func createTableCreationQuery(object reflect.Value, tableName string) (string, e
 	} else {
 		for i := 0; i < fieldNums; i++ {
 			fieldType := object.Type().Field(i).Type
+			fieldName := object.Type().Field(i).Name
+			PK := ""
+			if fieldName == pkFieldName {
+				PK = " PRIMARY KEY"
+			}
 			if postgresType, ok := goTypeToPostgresType[fieldType.Name()]; ok {
-				query += object.Type().Field(i).Name + " " + postgresType
+				query += object.Type().Field(i).Name + " " + postgresType + PK
 			}
 			if i != fieldNums-1 {
 				query += ", "
 			}
+			log.Println(query)
 		}
 	}
 	return createTableQueryPrefix + query + querySuffix, nil
