@@ -9,8 +9,8 @@ import (
 )
 
 type User struct {
-	ID        int    `json:"id" dapTableName:"clients2"  dapFieldAttrs:"PK , NotNull"`
-	FirstName string `json:"firstName" dapFieldAttrs:"PK NotNull"`
+	ID        int    `json:"id" dapTableName:"user"  dapFieldAttrs:"PK , NotNull"`
+	FirstName string `json:"firstName" dapFieldAttrs:"NotNull"`
 	LastName  string `json:"lastName" dapFieldAttrs:"NotNull"`
 }
 

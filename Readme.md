@@ -15,7 +15,23 @@ The goal of this project is to create a generic wrapper for database operations 
 
 ## An Example
 
-```
+```go
+package main
+
+import (
+	"database/sql"
+	"log"
+
+	_ "github.com/lib/pq"
+	"github.com/piyushpatil22/dapter/dapter"
+)
+
+type User struct {
+	ID        int    `json:"id" dapTableName:"user"  dapFieldAttrs:"PK , NotNull"`
+	FirstName string `json:"firstName" dapFieldAttrs:"NotNull"`
+	LastName  string `json:"lastName" dapFieldAttrs:"NotNull"`
+}
+
 func main() {
 
 	connection := "host=localhost port=5432 user=postgres password=root dbname=dbname sslmode=disable"
@@ -28,6 +44,10 @@ func main() {
 	dap := dapter.NewDAP(db)
 
 	var user User
+
+	// this will create a user table by parsing the tags
+	// from the user struct. Like primary key, not null
+	// DB type will be determined from the go type.
 	err = dap.AutoMigrate(user)
 	if err != nil {
 		log.Fatal(err)
