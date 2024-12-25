@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/piyushpatil22/dapter/dap"
 )
 
-func Parse2Struct(result interface{}, rows []dap.DapRow) error {
+type DapRow struct {
+	Columns []string
+	Values  []interface{}
+}
+
+func Parse2Struct(result interface{}, rows []DapRow) error {
 	resultVal := reflect.ValueOf(result)
 
 	if resultVal.Kind() != reflect.Ptr {
@@ -37,7 +41,7 @@ func Parse2Struct(result interface{}, rows []dap.DapRow) error {
 	return errors.New("no rows to parse")
 }
 
-func fillStruct(structVal reflect.Value, row dap.DapRow) error {
+func fillStruct(structVal reflect.Value, row DapRow) error {
 	if structVal.Kind() != reflect.Struct {
 		return errors.New("target value must be a struct")
 	}

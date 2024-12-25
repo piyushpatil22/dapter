@@ -8,17 +8,13 @@ import (
 	"github.com/piyushpatil22/dapter/dap/builder"
 	"github.com/piyushpatil22/dapter/dap/executor"
 	"github.com/piyushpatil22/dapter/dap/filter"
+	"github.com/piyushpatil22/dapter/dap/parser"
 	"github.com/piyushpatil22/dapter/dap/util"
 	"github.com/piyushpatil22/dapter/log"
 )
 
 type Store struct {
 	DB *sql.DB
-}
-
-type DapRow struct {
-	Columns []string
-	Values  []interface{}
 }
 
 func NewStore(db *sql.DB) *Store {
@@ -151,17 +147,21 @@ func (s *Store) BulkInsert(ent []interface{}) error {
 	return nil
 }
 
-func (s *Store) GetByFilter(ent interface{}, filters filter.Filter) ([]DapRow, error) {
+func (s *Store) GetByFilter(result interface{}, filters filter.Filter, ent interface{}) error {
 	if ent == nil {
 		log.Log.Error().Msg("Entity is nil")
-		return nil, fmt.Errorf("entity is nil")
+		return fmt.Errorf("entity is nil")
+	}
+	if !validateModelsMatch(result, ent) {
+		log.Log.Error().Msg("Error validating models match")
+		return fmt.Errorf("models do not match")
 	}
 	entType := reflect.TypeOf(ent)
 	db_table_name := builder.GetTableName(ent)
 	entName := entType.Name()
 	if db_table_name == "" {
 		log.Log.Error().Msg("Table name not found for entity")
-		return nil, fmt.Errorf("table name not found for entity %s", entName)
+		return fmt.Errorf("table name not found for entity %s", entName)
 	}
 	//get the fields of the entity
 	//create a query to get the entity by id
@@ -176,24 +176,30 @@ func (s *Store) GetByFilter(ent interface{}, filters filter.Filter) ([]DapRow, e
 	rows, err := s.DB.Query(query)
 	if err != nil {
 		log.Log.Err(err).Msg("Error executing query")
-		return nil, err
+		return err
 	}
 	defer rows.Close()
 	log.Log.Info().Msg("Query executed")
 	rowsData := ConvertToDapRow2(rows)
 	if len(rowsData) == 0 {
-		return nil, ErrNoRowsFound
+		return ErrNoRowsFound
 	}
-	return rowsData, nil
+	err = parser.Parse2Struct(result, rowsData)
+	if err != nil {
+		log.Log.Err(err).Msg("Error parsing rows to struct")
+		return err
+	}
+
+	return nil
 }
 
-func (s *Store) GetByID(ent any, id interface{}) ([]DapRow, error) {
-	filter := filter.Filter{
-		Field: "id",
-		Value: id,
-	}
-	return s.GetByFilter(ent, filter)
-}
+// func (s *Store) GetByID(ent any, id interface{}) ([]parser.DapRow, error) {
+// 	filter := filter.Filter{
+// 		Field: "id",
+// 		Value: id,
+// 	}
+// 	return s.GetByFilter(ent, filter, nil)
+// }
 
 func (s *Store) CreateTable(ent any) error {
 	query, err := executor.CreateEntityTableWithFields(ent)
@@ -330,8 +336,8 @@ func (s *Store) checkTableExists(tableName string) (bool, error) {
 	return exists, nil
 }
 
-func ConvertToDapRow2(rows *sql.Rows) []DapRow {
-	outputRows := make([]DapRow, 0)
+func ConvertToDapRow2(rows *sql.Rows) []parser.DapRow {
+	outputRows := make([]parser.DapRow, 0)
 	columns, err := rows.Columns()
 	if err != nil {
 		log.Log.Err(err).Msg("Error getting columns")
@@ -348,7 +354,7 @@ func ConvertToDapRow2(rows *sql.Rows) []DapRow {
 			log.Log.Err(err).Msg("Error scanning row")
 			continue
 		}
-		row := DapRow{
+		row := parser.DapRow{
 			Columns: columns,
 			Values:  make([]interface{}, len(columns)),
 		}
@@ -356,4 +362,14 @@ func ConvertToDapRow2(rows *sql.Rows) []DapRow {
 		outputRows = append(outputRows, row)
 	}
 	return outputRows
+}
+
+func validateModelsMatch(ent1, ent2 any) bool {
+	ent1Type := reflect.TypeOf(ent1)
+	if ent1Type.Kind() != reflect.Ptr || ent1Type.Elem().Kind() != reflect.Slice {
+		return false
+	}
+	sliceElemType := ent1Type.Elem().Elem()
+	ent2Type := reflect.TypeOf(ent2)
+	return sliceElemType == ent2Type
 }

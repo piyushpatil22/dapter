@@ -7,7 +7,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/piyushpatil22/dapter/dap"
 	"github.com/piyushpatil22/dapter/dap/filter"
-	"github.com/piyushpatil22/dapter/dap/parser"
 	"github.com/piyushpatil22/dapter/log"
 )
 
@@ -65,9 +64,10 @@ func main() {
 
 	filter := filter.Filter{
 		Field: "username",
-		Value: "sam",
+		Value: "jack",
 	}
-	rows, err := store.GetByFilter(user, filter)
+	var list []User
+	err = store.GetByFilter(&list, filter, Instrument{})
 	if err != nil {
 		if err == dap.ErrNoRowsFound {
 			log.Log.Info().Msg("No rows found")
@@ -75,12 +75,7 @@ func main() {
 		}
 		log.Log.Err(err).Msg("Error getting user")
 	}
-	var users []User
-	err = parser.Parse2Struct(&users, rows)
-	if err != nil {
-		log.Log.Err(err).Msg("Error parsing rows to struct")
-	}
-	for _, u := range users {
+	for _, u := range list {
 		log.Log.Info().Interface("user", u).Msg("User")
 	}
 }
