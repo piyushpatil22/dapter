@@ -1,10 +1,11 @@
-package dap
+package store
 
 import (
 	"database/sql"
 	"fmt"
 	"reflect"
 
+	"github.com/piyushpatil22/dapter/dap"
 	"github.com/piyushpatil22/dapter/dap/builder"
 	"github.com/piyushpatil22/dapter/dap/executor"
 	"github.com/piyushpatil22/dapter/dap/filter"
@@ -13,18 +14,19 @@ import (
 	"github.com/piyushpatil22/dapter/log"
 )
 
+// TODO need tests for each package
 type Store struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 func NewStore(db *sql.DB) *Store {
 	return &Store{
-		DB: db,
+		db: db,
 	}
 }
 
 func (s *Store) Close() error {
-	return s.DB.Close()
+	return s.db.Close()
 }
 
 func (s *Store) Insert(ent any) error {
@@ -47,15 +49,9 @@ func (s *Store) Insert(ent any) error {
 		}
 		log.Log.Info().Interface("new_cols", new_cols).Msg("New columns")
 		if len(new_cols) > 0 {
-			log.Log.Info().Msg("Table needs update")
-			err = s.UpdateTable(ent)
-			if err != nil {
-				log.Log.Err(err).Msg("Error updating table")
-				return err
-			}
+			return fmt.Errorf("table needs update")
 		}
 	}
-	//get the type of the entity
 	entType := reflect.TypeOf(ent)
 	entName := entType.Name()
 	db_table_name := builder.GetTableName(ent)
@@ -63,8 +59,6 @@ func (s *Store) Insert(ent any) error {
 		log.Log.Err(err).Msg("Table name not found for entity")
 		return fmt.Errorf("table name not found for entity %s", entName)
 	}
-	//get the fields of the entity
-	//create a query to insert the entity
 	query, err := builder.GenerateQuery(ent, db_table_name, builder.INSERT, nil)
 	if err != nil {
 		log.Log.Err(err).Msg("Error generating insert query")
@@ -72,8 +66,7 @@ func (s *Store) Insert(ent any) error {
 		log.Log.Info().Str("query", query).Msg("Query")
 	}
 
-	//execute the query
-	rows, err := s.DB.Query(query)
+	rows, err := s.db.Query(query)
 	if err != nil {
 		log.Log.Err(err).Msg("Error executing query")
 		return err
@@ -92,8 +85,6 @@ func (s *Store) Update(ent any) error {
 		log.Log.Error().Msg("Table name not found for entity")
 		return fmt.Errorf("table name not found for entity %s", entName)
 	}
-	//get the fields of the entity
-	//create a query to update the entity
 	query, err := builder.GenerateQuery(ent, db_table_name, builder.UPDATE, nil)
 	if err != nil {
 		log.Log.Err(err).Msg("Error generating update query")
@@ -101,8 +92,7 @@ func (s *Store) Update(ent any) error {
 		log.Log.Info().Str("query", query).Msg("Query")
 	}
 
-	//execute the query
-	rows, err := s.DB.Query(query)
+	rows, err := s.db.Query(query)
 	if err != nil {
 		log.Log.Err(err).Msg("Error executing query")
 		return nil
@@ -122,8 +112,6 @@ func (s *Store) Delete(ent any) error {
 		log.Log.Error().Msg("Table name not found for entity")
 		return fmt.Errorf("table name not found for entity %s", entName)
 	}
-	//get the fields of the entity
-	//create a query to delete the entity
 	query, err := builder.GenerateQuery(ent, db_table_name, builder.DELETE, nil)
 	if err != nil {
 		log.Log.Err(err).Msg("Error generating delete query")
@@ -131,7 +119,7 @@ func (s *Store) Delete(ent any) error {
 		log.Log.Info().Str("query", query).Msg("Query")
 	}
 
-	//execute the query
+	//TODO execute the query
 
 	return nil
 }
@@ -163,17 +151,13 @@ func (s *Store) GetByFilter(result interface{}, filters filter.Filter, ent inter
 		log.Log.Error().Msg("Table name not found for entity")
 		return fmt.Errorf("table name not found for entity %s", entName)
 	}
-	//get the fields of the entity
-	//create a query to get the entity by id
 	query, err := builder.GenerateQuery(ent, db_table_name, builder.GET, []filter.Filter{filters})
 	if err != nil {
 		log.Log.Err(err).Msg("Error generating get query")
 	} else {
 		log.Log.Info().Str("query", query).Msg("Query")
 	}
-
-	//execute the query
-	rows, err := s.DB.Query(query)
+	rows, err := s.db.Query(query)
 	if err != nil {
 		log.Log.Err(err).Msg("Error executing query")
 		return err
@@ -182,7 +166,7 @@ func (s *Store) GetByFilter(result interface{}, filters filter.Filter, ent inter
 	log.Log.Info().Msg("Query executed")
 	rowsData := ConvertToDapRow2(rows)
 	if len(rowsData) == 0 {
-		return ErrNoRowsFound
+		return dap.ErrNoRowsFound
 	}
 	err = parser.Parse2Struct(result, rowsData)
 	if err != nil {
@@ -193,14 +177,26 @@ func (s *Store) GetByFilter(result interface{}, filters filter.Filter, ent inter
 	return nil
 }
 
-// func (s *Store) GetByID(ent any, id interface{}) ([]parser.DapRow, error) {
-// 	filter := filter.Filter{
-// 		Field: "id",
-// 		Value: id,
-// 	}
-// 	return s.GetByFilter(ent, filter, nil)
-// }
+//	func (s *Store) GetByID(ent any, id interface{}) ([]parser.DapRow, error) {
+//		filter := filter.Filter{
+//			Field: "id",
+//			Value: id,
+//		}
+//		return s.GetByFilter(ent, filter, nil)
+//	}
 
+func (s *Store) ExecuteWithConditions(result interface{}, query string, args []interface{}) error {
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		log.Log.Err(err).Msg("Error executing query")
+		return err
+	}
+	defer rows.Close()
+	log.Log.Info().Msg("Query executed")
+	err = parser.Parse2Struct(result, ConvertToDapRow2(rows))
+	return err
+}
 func (s *Store) CreateTable(ent any) error {
 	query, err := executor.CreateEntityTableWithFields(ent)
 	if err != nil {
@@ -210,7 +206,7 @@ func (s *Store) CreateTable(ent any) error {
 	log.Log.Info().Str("query", query).Msg("Query")
 
 	//execute the query
-	result, err := s.DB.Exec(query)
+	result, err := s.db.Exec(query)
 	if err != nil {
 		log.Log.Err(err).Msg("Error executing query")
 		return err
@@ -221,7 +217,7 @@ func (s *Store) CreateTable(ent any) error {
 }
 
 func (s *Store) FetchColumns(tableName string) ([]string, error) {
-	rows, err := s.DB.Query(fmt.Sprintf("SELECT column_name FROM information_schema.columns WHERE table_name = '%s' ORDER BY ordinal_position", tableName))
+	rows, err := s.db.Query(fmt.Sprintf("SELECT column_name FROM information_schema.columns WHERE table_name = '%s' ORDER BY ordinal_position", tableName))
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +300,7 @@ func (s *Store) UpdateTable(ent any) error {
 
 	}
 	log.Log.Info().Str("query", query).Msg("Query")
-	result, err := s.DB.Exec(query)
+	result, err := s.db.Exec(query)
 	if err != nil {
 		log.Log.Err(err).Msg("Error executing query")
 		return err
@@ -314,7 +310,7 @@ func (s *Store) UpdateTable(ent any) error {
 }
 
 func (s *Store) checkTableExists(tableName string) (bool, error) {
-	rows, err := s.DB.Query(fmt.Sprintf("SELECT to_regclass('public.%s')", tableName))
+	rows, err := s.db.Query(fmt.Sprintf("SELECT to_regclass('public.%s')", tableName))
 	if err != nil {
 		return false, err
 	}

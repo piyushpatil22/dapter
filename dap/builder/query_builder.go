@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/piyushpatil22/dapter/dap/filter"
+	"github.com/piyushpatil22/dapter/log"
 )
 
 const (
@@ -20,10 +21,15 @@ var ENTITY_TABLE_NAME_MAPPING = map[string]string{
 }
 
 type QueryBuilder struct {
+	Output    interface{}
 	Value     reflect.Value
 	Type      reflect.Type
 	TableName string
 	Filters   []filter.Filter
+	argCount  int
+	tableName string
+	query     string
+	args      []interface{}
 }
 
 func (qb *QueryBuilder) AppendFilters(filters []filter.Filter) {
@@ -90,7 +96,15 @@ func GetTableName(ent interface{}) string {
 		return ""
 	}
 }
-func GetTableName2(entName string) string {
+func GetTableName2(ent interface{}) string {
+	entName := ""
+	//if slice, get the type of the slice
+	if reflect.TypeOf(ent).Kind() == reflect.Slice {
+		entName = reflect.TypeOf(ent).Elem().Name()
+	} else {
+		entName = reflect.TypeOf(ent).Name()
+	}
+	log.Log.Info().Str("entity", entName).Msg("Entity")
 	if val, ok := ENTITY_TABLE_NAME_MAPPING[entName]; ok {
 		return val
 	} else {

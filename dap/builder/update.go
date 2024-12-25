@@ -34,11 +34,9 @@ func generateUpdateQuery(builder *QueryBuilder) (string, error) {
 			}
 			continue
 		}
-		//if value is empty, skip the field
 		if isZeroValue(builder.Value.Field(i)) {
 			continue
 		}
-
 		query += fmt.Sprintf("%s = '%v'", builder.Type.Field(i).Tag.Get("json"), builder.Value.Field(i).Interface())
 		if i != builder.Value.NumField()-1 {
 			query += ", "

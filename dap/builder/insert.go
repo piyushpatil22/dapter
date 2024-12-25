@@ -34,7 +34,6 @@ func generateInsertQuery(builder *QueryBuilder) (string, error) {
 	}
 	query += ") VALUES ("
 	for i := 0; i < builder.Value.NumField(); i++ {
-		//check if the field is Base struct
 		if builder.Type.Field(i).Name == "Base" {
 			for j := 0; j < builder.Value.Field(i).NumField(); j++ {
 				if builder.Value.Field(i).Type().Field(j).Name == "ID" {

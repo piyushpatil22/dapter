@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-
 )
 
+// TODO need to fix error returns, define error in 1 place
 type DapRow struct {
 	Columns []string
 	Values  []interface{}
@@ -14,11 +14,9 @@ type DapRow struct {
 
 func Parse2Struct(result interface{}, rows []DapRow) error {
 	resultVal := reflect.ValueOf(result)
-
 	if resultVal.Kind() != reflect.Ptr {
 		return errors.New("result must be a pointer")
 	}
-
 	elemType := resultVal.Elem().Type()
 	if elemType.Kind() == reflect.Slice {
 		sliceElemType := elemType.Elem()
@@ -37,7 +35,6 @@ func Parse2Struct(result interface{}, rows []DapRow) error {
 	if len(rows) > 0 {
 		return fillStruct(resultVal.Elem(), rows[0])
 	}
-
 	return errors.New("no rows to parse")
 }
 
@@ -51,7 +48,6 @@ func fillStruct(structVal reflect.Value, row DapRow) error {
 			tag := field.Tag.Get("json")
 			return tag == column || name == column
 		})
-		// Handle embedded structs
 		if !field.IsValid() {
 			for j := 0; j < structVal.NumField(); j++ {
 				embeddedField := structVal.Field(j)
@@ -64,12 +60,9 @@ func fillStruct(structVal reflect.Value, row DapRow) error {
 				}
 			}
 		}
-
 		if !field.IsValid() || !field.CanSet() {
 			continue
 		}
-
-		// Set the value
 		value := row.Values[i]
 		if value == nil {
 			field.Set(reflect.Zero(field.Type()))
@@ -84,6 +77,5 @@ func fillStruct(structVal reflect.Value, row DapRow) error {
 			return fmt.Errorf("cannot assign value of type %s to field %s of type %s", val.Type(), column, field.Type())
 		}
 	}
-
 	return nil
 }

@@ -6,12 +6,14 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/piyushpatil22/dapter/dap"
+	"github.com/piyushpatil22/dapter/dap/builder"
 	"github.com/piyushpatil22/dapter/dap/filter"
+	"github.com/piyushpatil22/dapter/dap/store"
 	"github.com/piyushpatil22/dapter/log"
 )
 
 type Base struct {
-	ID        string    `json:"id"`
+	ID        int64     `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -37,22 +39,27 @@ func main() {
 		log.Log.Err(err).Msg("Error connecting to database")
 	}
 
-	store := dap.NewStore(db)
+	store := store.NewStore(db)
 	defer store.Close()
 
 	user := User{
-		Username: "jack",
-		Password: "lantern",
+		Username:       "sam",
+		Password:       "notsecure",
+		Gender:         "male",
+		AccountBalance: 555,
+		IsAdmin:        true,
 	}
 
+	//inserting entity
 	err = store.Insert(user)
 	if err != nil {
 		log.Log.Err(err).Msg("Error inserting user")
 	}
 
+	//conditioning logic type 1
 	filter := filter.Filter{
 		Field: "username",
-		Value: "jack",
+		Value: "sam",
 	}
 	var list []User
 	err = store.GetByFilter(&list, filter, User{})
@@ -63,7 +70,25 @@ func main() {
 		}
 		log.Log.Err(err).Msg("Error getting user")
 	}
-	for _, u := range list {
-		log.Log.Info().Interface("user", u).Msg("User")
+	log.Log.Info().Interface("list", list).Msg("User List fetched via simple conditions")
+
+	//conditioning logic type 2
+	newFilters := []builder.Condition{
+		builder.QueryCondition{Field: "account_balance", Operator: ">", Value: "100"},
+		builder.QueryCondition{Field: "id", Operator: "=", Value: "69"},
 	}
+
+	//TODO need to figure out this part (either rewrite the builder package or get everything together)
+	var userList User
+	args, query := builder.Select(&userList, User{}).WHERE(newFilters).GetQueryArgs()
+	log.Log.Info().Str("query", query).Interface("args", args).Msg("Query and Args")
+	err = store.ExecuteWithConditions(&userList, query, args)
+	if err != nil {
+		if err == dap.ErrNoRowsFound {
+			log.Log.Info().Msg("No rows found")
+			return
+		}
+		log.Log.Err(err).Msg("Error getting user")
+	}
+	log.Log.Info().Interface("userList", userList).Msg("User List fetched via complex conditions")
 }
