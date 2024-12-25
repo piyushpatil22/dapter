@@ -151,35 +151,21 @@ func (s *Store) BulkInsert(ent []interface{}) error {
 	return nil
 }
 
-func (s *Store) GetByFilter(ent interface{}, filter filter.Filter) error {
+func (s *Store) GetByFilter(ent interface{}, filters filter.Filter) ([]DapRow, error) {
 	if ent == nil {
 		log.Log.Error().Msg("Entity is nil")
-		return fmt.Errorf("entity is nil")
+		return nil, fmt.Errorf("entity is nil")
 	}
 	entType := reflect.TypeOf(ent)
-	if entType.Kind() != reflect.Ptr {
-		log.Log.Error().Msg("Entity should be a pointer")
-		return fmt.Errorf("entity should be a pointer")
-	}
-
-	var db_table_name string
-	//for slice
-	if entType.Elem().Kind() == reflect.Slice {
-		entType = entType.Elem().Elem()
-		db_table_name = builder.GetTableName2(entType.Name())
-		log.Log.Info().Str("table_name", db_table_name).Msg("Table name")
-	} else {
-		entType = entType.Elem()
-	}
-
+	db_table_name := builder.GetTableName(ent)
 	entName := entType.Name()
 	if db_table_name == "" {
 		log.Log.Error().Msg("Table name not found for entity")
-		return fmt.Errorf("table name not found for entity %s", entName)
+		return nil, fmt.Errorf("table name not found for entity %s", entName)
 	}
 	//get the fields of the entity
 	//create a query to get the entity by id
-	query, err := builder.GenerateQuery(ent, db_table_name, builder.GET, nil)
+	query, err := builder.GenerateQuery(ent, db_table_name, builder.GET, []filter.Filter{filters})
 	if err != nil {
 		log.Log.Err(err).Msg("Error generating get query")
 	} else {
@@ -190,16 +176,18 @@ func (s *Store) GetByFilter(ent interface{}, filter filter.Filter) error {
 	rows, err := s.DB.Query(query)
 	if err != nil {
 		log.Log.Err(err).Msg("Error executing query")
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 	log.Log.Info().Msg("Query executed")
 	rowsData := ConvertToDapRow2(rows)
-	log.Log.Info().Interface("rowsData", rowsData).Msg("Rows data")
-	return nil
+	if len(rowsData) == 0 {
+		return nil, ErrNoRowsFound
+	}
+	return rowsData, nil
 }
 
-func (s *Store) GetByID(ent any, id interface{}) error {
+func (s *Store) GetByID(ent any, id interface{}) ([]DapRow, error) {
 	filter := filter.Filter{
 		Field: "id",
 		Value: id,

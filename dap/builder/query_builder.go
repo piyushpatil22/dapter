@@ -3,6 +3,8 @@ package builder
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/piyushpatil22/dapter/dap/filter"
 )
 
 const (
@@ -21,16 +23,11 @@ type QueryBuilder struct {
 	Value     reflect.Value
 	Type      reflect.Type
 	TableName string
-	Filters   []Filter
+	Filters   []filter.Filter
 }
 
-func (qb *QueryBuilder) AppendFilters(filters []Filter) {
+func (qb *QueryBuilder) AppendFilters(filters []filter.Filter) {
 	qb.Filters = append(qb.Filters, filters...)
-}
-
-type Filter struct {
-	Field string
-	Value interface{}
 }
 
 func NewQueryBuilder(ent interface{}) *QueryBuilder {
@@ -38,11 +35,11 @@ func NewQueryBuilder(ent interface{}) *QueryBuilder {
 		Value:     reflect.ValueOf(ent),
 		Type:      reflect.TypeOf(ent),
 		TableName: GetTableName(ent),
-		Filters:   make([]Filter, 0),
+		Filters:   make([]filter.Filter, 0),
 	}
 }
 
-func GenerateQuery(ent interface{}, tableName string, queryType string, filters []Filter) (string, error) {
+func GenerateQuery(ent interface{}, tableName string, queryType string, filters []filter.Filter) (string, error) {
 	builder := NewQueryBuilder(ent)
 	switch queryType {
 	case INSERT:

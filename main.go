@@ -2,17 +2,19 @@ package main
 
 import (
 	"database/sql"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/piyushpatil22/dapter/dap"
 	"github.com/piyushpatil22/dapter/dap/filter"
+	"github.com/piyushpatil22/dapter/dap/parser"
 	"github.com/piyushpatil22/dapter/log"
 )
 
 type Base struct {
-	ID        string `json:"id"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 type Instrument struct {
 	Base
@@ -37,6 +39,7 @@ type User struct {
 	Gender         string  `json:"gender"`
 	DOB            string  `json:"dob"`
 	IsActivated    bool    `json:"is_activated"`
+	IsAdmin        bool    `json:"is_admin"`
 }
 
 func main() {
@@ -51,10 +54,8 @@ func main() {
 	defer store.Close()
 
 	user := User{
-		Username:       "jack ",
-		Password:       "jack123",
-		Gender:         "male",
-		AccountBalance: 1000,
+		Username: "jack",
+		Password: "lantern",
 	}
 
 	err = store.Insert(user)
@@ -63,18 +64,23 @@ func main() {
 	}
 
 	filter := filter.Filter{
-		Field: "gender",
-		Value: "female",
+		Field: "username",
+		Value: "sam",
 	}
-	userList := []User{}
-	err = store.GetByFilter(&userList, filter)
+	rows, err := store.GetByFilter(user, filter)
 	if err != nil {
+		if err == dap.ErrNoRowsFound {
+			log.Log.Info().Msg("No rows found")
+			return
+		}
 		log.Log.Err(err).Msg("Error getting user")
 	}
-
-	// err = store.Update(user)
-	// if err != nil {
-	// 	log.Log.Err(err).Msg("Error updating user")
-	// }
-
+	var users []User
+	err = parser.Parse2Struct(&users, rows)
+	if err != nil {
+		log.Log.Err(err).Msg("Error parsing rows to struct")
+	}
+	for _, u := range users {
+		log.Log.Info().Interface("user", u).Msg("User")
+	}
 }
