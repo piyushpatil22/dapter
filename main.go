@@ -15,18 +15,6 @@ type Base struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
-type Instrument struct {
-	Base
-	Token            string `json:"token"`
-	Symbol           string `json:"symbol"`
-	Name             string `json:"name"`
-	Expiry           string `json:"expiry"`
-	StrikePrice      string `json:"strike_price"`
-	LotSize          string `json:"lot_size"`
-	InstrumentType   string `json:"instrument_type"`
-	ExchaangeSegment string `json:"exch_seg"`
-	TickSize         string `json:"tick_size"`
-}
 
 type User struct {
 	Base
@@ -67,7 +55,7 @@ func main() {
 		Value: "jack",
 	}
 	var list []User
-	err = store.GetByFilter(&list, filter, Instrument{})
+	err = store.GetByFilter(&list, filter, User{})
 	if err != nil {
 		if err == dap.ErrNoRowsFound {
 			log.Log.Info().Msg("No rows found")
