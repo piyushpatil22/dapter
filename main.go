@@ -2,57 +2,79 @@ package main
 
 import (
 	"database/sql"
-	"log"
-	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/piyushpatil22/dapter/dapter"
+	"github.com/piyushpatil22/dapter/dap"
+	"github.com/piyushpatil22/dapter/dap/filter"
+	"github.com/piyushpatil22/dapter/log"
 )
 
-type User struct {
-	ID        int    `json:"id" dapTableName:"user"  dapFieldAttrs:"PK"`
-	FirstName string `json:"firstName" dapFieldAttrs:"NOT NULL"`
-	LastName  string `json:"lastName" dapFieldAttrs:"NOT NULL"`
+type Base struct {
+	ID        string `json:"id"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+type Instrument struct {
+	Base
+	Token            string `json:"token"`
+	Symbol           string `json:"symbol"`
+	Name             string `json:"name"`
+	Expiry           string `json:"expiry"`
+	StrikePrice      string `json:"strike_price"`
+	LotSize          string `json:"lot_size"`
+	InstrumentType   string `json:"instrument_type"`
+	ExchaangeSegment string `json:"exch_seg"`
+	TickSize         string `json:"tick_size"`
 }
 
-type UserNew struct {
-	ID            int       `json:"id" dapTableName:"usersnew" dapFieldAttrs:"PK"`
-	FirstName     string    `json:"first_name" dapFieldAttrs:"NOT NULL"`
-	LastName      string    `json:"last_name" dapFieldAttrs:"NOT NULL"`
-	Email         string    `json:"email" dapFieldAttrs:"NOT NULL"`
-	Password      string    `json:"-" dapFieldAttrs:"NOT NULL"`
-	IsActive      bool      `json:"is_active"`
-	CreatedOn     time.Time `json:"created_at"`
-	LastLogin     time.Time `json:"last_login,omitempty"`
-	Role          string    `json:"role,omitempty" dapFieldAttrs:"NOT NULL"`
-	Birthday      time.Time `json:"birthday,omitempty"`
-	DeactivatedOn time.Time `json:"deactivated_on,omitempty"`
+type User struct {
+	Base
+	Username       string  `json:"username"`
+	Password       string  `json:"password"`
+	Email          string  `json:"email"`
+	Phone          int64   `json:"phone"`
+	AccountBalance float64 `json:"account_balance"`
+	Gender         string  `json:"gender"`
+	DOB            string  `json:"dob"`
+	IsActivated    bool    `json:"is_activated"`
 }
 
 func main() {
-
-	connection := "host=localhost port=5432 user=postgres password=root dbname=dashapp sslmode=disable"
+	_ = log.Log
+	connection := "host=localhost port=5432 user=postgres password=root dbname=dapter_test sslmode=disable"
 	db, err := sql.Open("postgres", connection)
 	if err != nil {
-		log.Fatal(err)
+		log.Log.Err(err).Msg("Error connecting to database")
 	}
 
-	//this is the impl example for the DAP
-	dap := dapter.NewDAP(db)
+	store := dap.NewStore(db)
+	defer store.Close()
 
-	// var user User
-	var userNew UserNew
+	user := User{
+		Username:       "jack ",
+		Password:       "jack123",
+		Gender:         "male",
+		AccountBalance: 1000,
+	}
 
-	// err = dap.AutoMigrate(user)
+	err = store.Insert(user)
+	if err != nil {
+		log.Log.Err(err).Msg("Error inserting user")
+	}
+
+	filter := filter.Filter{
+		Field: "gender",
+		Value: "female",
+	}
+	userList := []User{}
+	err = store.GetByFilter(&userList, filter)
+	if err != nil {
+		log.Log.Err(err).Msg("Error getting user")
+	}
+
+	// err = store.Update(user)
 	// if err != nil {
-	// 	log.Fatal(err)
+	// 	log.Log.Err(err).Msg("Error updating user")
 	// }
 
-	err = dap.AutoMigrate(userNew)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//a get query would look something like
-	//dap.Get(&user, "id", 1)
 }

@@ -1,4 +1,4 @@
-package dapter
+package dap
 
 import "fmt"
 
