@@ -2,6 +2,15 @@
 
 ## Generic DB Wrapper for Go Projects
 
+## State
+
+The reason for me to create this is because, there are a lot of ORMs, DB helpers but my usecase and the
+flexibilty that I wanted I could not find. So decided to create my own, I am trying to keep it as high
+level as possible so that it is wasy to use. I have started many hooby projects in Go, but all of them
+have been remained incomplete because at some point the raw dogging sql query seems very inefficient,
+and using an ORM leads to certain restriction at some point that I just gave up on. My goal is to create
+a SQL wrapper so that I can revieve my past projects and also learn along the way while building this.
+
 ## Goal
 
 The goal of this project is to create a generic wrapper for database operations in Go projects. This wrapper should simplify database interactions and promote code reuse across different projects.
